@@ -54,7 +54,7 @@
       Features
     </div>
 
-    <!-- Form for Uploading Image -->
+    <!-- Unified Form for Uploading and Processing -->
     <div
       class="padding_top_large"
       style="
@@ -65,44 +65,120 @@
         align-items: center;
       "
     >
-      <div style="display: flex">
+      <form
+        action="/process"
+        method="post"
+        enctype="multipart/form-data"
+        style="display: flex; flex-direction: column; align-items: center"
+      >
         <div>Upload image and audio files here:</div>
-        <form
-          action="/upload_image"
-          method="post"
-          enctype="multipart/form-data"
-          class="padding_left_small"
-        >
-          <button type="submit">Upload Image</button>
-        </form>
-
-        <!-- Form for Uploading Audio -->
-        <form
-          action="/upload_audio"
-          method="post"
-          enctype="multipart/form-data"
-          class="padding_left_small"
-        >
-          <button type="submit">Upload Audio</button>
-        </form>
-      </div>
-      <div style="text-align: center" class="form_errors padding_left_small">
-        errors
-      </div>
-    </div>
-
-    <!-- Form for Processing -->
-    <div class="padding_top_small">
-      <div style="display: flex">
-        <div class="">Extract features from image and audio here:</div>
-        <form action="/process" method="post">
-          <button type="submit" class="padding_left_small" disabled>
-            Process
+        <div style="display: flex; gap: 10px; margin-bottom: 10px">
+          <!-- Upload Image -->
+          <button
+            type="button"
+            class="button"
+            onclick="document.getElementById('image_file').click();"
+          >
+            Upload Image
           </button>
-        </form>
-      </div>
-      <div style="text-align: center" class="form_errors">errors</div>
+          <input
+            type="file"
+            id="image_file"
+            name="image_file"
+            accept=".png, .jpg, .jpeg"
+            style="display: none"
+            onchange="validateImageFile()"
+          />
+
+          <!-- Upload Audio -->
+          <button
+            type="button"
+            class="button"
+            onclick="document.getElementById('audio_file').click();"
+          >
+            Upload Audio
+          </button>
+          <input
+            type="file"
+            id="audio_file"
+            name="audio_file"
+            accept=".mp3, .wav"
+            style="display: none"
+            onchange="validateAudioFile()"
+          />
+        </div>
+
+        <!-- Error Message -->
+        <div style="text-align: center; margin-bottom: 10px" id="file_errors">
+          Files not selected
+        </div>
+        <div>Extract features from image and audio here:</div>
+        <!-- Process Button -->
+        <button type="submit" class="button" id="process_button" disabled>
+          Process
+        </button>
+      </form>
     </div>
+
+    <script>
+      const imageInput = document.getElementById("image_file");
+      const audioInput = document.getElementById("audio_file");
+      const processButton = document.getElementById("process_button");
+      const fileErrors = document.getElementById("file_errors");
+
+      // Allowed file extensions
+      const allowedImageExtensions = [".png", ".jpg", ".jpeg"];
+      const allowedAudioExtensions = [".mp3", ".wav"];
+
+      // Validate image file
+      function validateImageFile() {
+        const file = imageInput.files[0];
+        if (file && isValidExtension(file.name, allowedImageExtensions)) {
+          updateFileStatus();
+        } else {
+          fileErrors.textContent =
+            "Invalid image file. Only .png, .jpg, .jpeg allowed.";
+          imageInput.value = ""; // Clear the input
+        }
+      }
+
+      // Validate audio file
+      function validateAudioFile() {
+        const file = audioInput.files[0];
+        if (file && isValidExtension(file.name, allowedAudioExtensions)) {
+          updateFileStatus();
+        } else {
+          fileErrors.textContent =
+            "Invalid audio file. Only .mp3, .wav allowed.";
+          audioInput.value = ""; // Clear the input
+        }
+      }
+
+      // Helper to check if file has a valid extension
+      function isValidExtension(filename, allowedExtensions) {
+        const extension = filename
+          .slice(filename.lastIndexOf("."))
+          .toLowerCase();
+        return allowedExtensions.includes(extension);
+      }
+
+      // Update file status and enable/disable Process button
+      function updateFileStatus() {
+        const imageSelected = imageInput.files.length > 0;
+        const audioSelected = audioInput.files.length > 0;
+
+        if (imageSelected && audioSelected) {
+          const imageName = imageInput.files[0].name;
+          const audioName = audioInput.files[0].name;
+          fileErrors.textContent = `Image: ${imageName} | Voice: ${audioName}`;
+          processButton.disabled = false; // Enable "Process" button
+        } else {
+          fileErrors.textContent = "Files not selected";
+          processButton.disabled = true; // Keep "Process" button disabled
+        }
+      }
+    </script>
+
     <!-- Form for Predict -->
     <div class="padding_top_small">
       <div style="display: flex">
@@ -153,5 +229,14 @@
 
     <!-- Footer -->
     <h4>Footer Section</h4>
+    <div>
+      {% with messages = get_flashed_messages() %} {% if messages %}
+      <ul>
+        {% for message in messages %}
+        <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %} {% endwith %}
+    </div>
   </body>
 </html>
