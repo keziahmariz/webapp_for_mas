@@ -1,8 +1,14 @@
 import os
 from flask import Flask, request, render_template, redirect, url_for, flash
+from flask_toastr import Toastr
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # Required for flashing messages
+
+toastr = Toastr(app)
+app.config['TOASTR_TIMEOUT'] = 5000  # Duration in milliseconds
+app.config['TOASTR_POSITION_CLASS'] = 'toast-top-right'  # Position of the toast
+
 
 # Directory to store uploaded files
 UPLOAD_FOLDER = "uploads"
@@ -41,7 +47,7 @@ def process():
     """
     # Validate files in the request
     if "image_file" not in request.files or "audio_file" not in request.files:
-        flash("Missing files. Please upload both image and audio files.")
+        flash("No file selected. Please choose both files.", "error")
         return redirect(url_for("index"))
 
     image_file = request.files["image_file"]
@@ -55,14 +61,16 @@ def process():
     # Validate image file
     if not allowed_file(image_file.filename, ALLOWED_IMAGE_EXTENSIONS):
         flash(
-            f"Invalid image file. Allowed extensions: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
+            f"Invalid image file. Allowed extensions: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
+            "error",
         )
         return redirect(url_for("index"))
 
     # Validate audio file
     if not allowed_file(audio_file.filename, ALLOWED_AUDIO_EXTENSIONS):
         flash(
-            f"Invalid audio file. Allowed extensions: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}"
+            f"Invalid audio file. Allowed extensions: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}",
+            "error",
         )
         return redirect(url_for("index"))
 
@@ -73,7 +81,9 @@ def process():
     audio_file.save(audio_path)
 
     # Flash success message and redirect
-    flash(f"Files uploaded successfully: {image_file.filename} and {audio_file.filename}")
+    flash(f"Files uploaded successfully: {image_file.filename} and {audio_file.filename}",
+          "success",
+          )
     return redirect(url_for("index"))
 
 
@@ -86,7 +96,7 @@ def reset():
     for file in os.listdir(UPLOAD_FOLDER):
         os.remove(os.path.join(UPLOAD_FOLDER, file))
 
-    flash("Files and state have been reset.")
+    flash("Files and state have been reset.", "info")
     return redirect(url_for("index"))
 
 

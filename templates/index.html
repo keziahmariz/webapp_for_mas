@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    {{ toastr.include_jquery() }}
+    {{ toastr.include_toastr_css() }}
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flask Jinja2 Template</title>
     <link
@@ -109,14 +112,16 @@
         </div>
 
         <!-- Error Message -->
-        <div style="text-align: center; margin-bottom: 10px" id="file_errors">
-          Files not selected
+        <div style="text-align: center; margin-bottom: 20px" id="file_errors">
+          No files selected.
         </div>
+
         <div>Extract features from image and audio here:</div>
         <!-- Process Button -->
         <button type="submit" class="button" id="process_button" disabled>
           Process
         </button>
+        
       </form>
     </div>
 
@@ -229,6 +234,7 @@
 
     <!-- Footer -->
     <h4>Footer Section</h4>
+    <!--
     <div>
       {% with messages = get_flashed_messages() %} {% if messages %}
       <ul>
@@ -238,5 +244,10 @@
       </ul>
       {% endif %} {% endwith %}
     </div>
+    -->
+
+    {{ toastr.include_toastr_js() }}
+    {{ toastr.message() }}
+
   </body>
 </html>
