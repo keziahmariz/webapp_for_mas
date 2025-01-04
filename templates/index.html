@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Flask Jinja2 Template</title>
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='styles.css') }}"
+    />
+    <style>
+      .loading-bar {
+        width: 100%;
+        height: 20px;
+        background: #ddd;
+        margin: 10px 0;
+      }
+
+      .loading-bar .progress {
+        height: 100%;
+        width: 0%;
+        background: #4caf50;
+        transition: width 0.5s ease;
+      }
+
+      .hidden {
+        display: none;
+      }
+    </style>
+  </head>
+  <body
+    style="
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    "
+  >
+    <!-- Main Header -->
+    <div id="main_header">
+      Age Prediction Model Using Extracted Face and Voice Features
+    </div>
+    <p>
+      from the on-going study Decoupled Attention Mechanisms Enhanced with
+      Latent Embeddings in Multimodal Age Prediction Using Face and Voice
+      Features
+    </p>
+
+    <!-- Form for Uploading Image -->
+    <div>
+      <div style="display: flex">
+        <div>Upload image and audio files here:</div>
+        <form
+          action="/upload_image"
+          method="post"
+          enctype="multipart/form-data"
+        >
+          <button type="submit">Upload Image</button>
+        </form>
+
+        <!-- Form for Uploading Audio -->
+        <form
+          action="/upload_audio"
+          method="post"
+          enctype="multipart/form-data"
+        >
+          <button type="submit">Upload Audio</button>
+        </form>
+      </div>
+      <div style="text-align: center">errors</div>
+    </div>
+
+    <!-- Form for Processing -->
+    <div>
+      <div style="display: flex">
+        <div>Extract features from image and audio here:</div>
+        <form action="/process" method="post">
+          <button type="submit" disabled>Process</button>
+        </form>
+      </div>
+      <div style="text-align: center">errors</div>
+    </div>
+    <!-- Form for Predict -->
+    <div>
+      <div style="display: flex">
+        <div>Predict the age from extracted features here:</div>
+        <form action="/predict" method="post" style="display: flex">
+          <button type="submit" disabled>Predict</button>
+        </form>
+      </div>
+      <div style="text-align: center">errors</div>
+    </div>
+
+    <!-- Conditionally Rendered Loading Bar and Text
+    {% if is_loading %}
+        <div class="loading-bar">
+            <div class="progress" style="width: {{ progress_percentage }}%;"></div>
+        </div>
+        <p>Loading... {{ loading_message }}</p>
+    {% endif %} -->
+
+    <!-- Additional Sections -->
+    <p>Predicted age group is:</p>
+    {% if result_h1 %}
+    <h1>{{ result_h1 }}</h1>
+    {% else %}
+    <h1>-</h1>
+    {% endif %}
+
+    <p>Accuracy:</p>
+    {% if analysis_h1 %}
+    <h1>{{ analysis_h1 }}</h1>
+    {% else %}
+    <h1>-</h1>
+    {% endif %}
+
+    <!-- Reset Button -->
+    <form action="/reset" method="post">
+      <button type="submit">Reset</button>
+    </form>
+
+    <!-- Footer -->
+    <h4>Footer Section</h4>
+  </body>
+</html>

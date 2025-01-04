@@ -1,0 +1,29 @@
+#main_header {
+  font-weight: bold;
+}
+
+button {
+  background-color: #f8f8f8; /* Light gray background */
+  border: 1px solid #ccc; /* Thin border with a subtle color */
+  border-radius: 8px; /* Rounded corners */
+  padding: 8px 16px; /* Space inside the button */
+  font-size: 14px; /* Text size */
+  font-family: Arial, sans-serif; /* Font style */
+  color: #000; /* Black text color */
+  cursor: pointer; /* Pointer cursor on hover */
+  box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+  transition: all 0.2s ease; /* Smooth transition for hover effects */
+}
+
+button:hover {
+  background-color: #e6e6e6; /* Slightly darker background on hover */
+  box-shadow: 3px 3px 7px rgba(0, 0, 0, 0.3); /* More pronounced shadow on hover */
+}
+
+button:disabled {
+  background-color: #e0e0e0; /* Lighter gray for disabled state */
+  border: 1px solid #d6d6d6; /* Subtle border for disabled state */
+  color: #a0a0a0; /* Muted text color */
+  cursor: not-allowed; /* Not-allowed cursor on hover */
+  box-shadow: none; /* No shadow for disabled state */
+}
