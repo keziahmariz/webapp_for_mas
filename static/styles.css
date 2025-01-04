@@ -1,5 +1,6 @@
 #main_header {
   font-weight: bold;
+  font-size: 3rem;
 }
 
 button {
@@ -26,4 +27,28 @@ button:disabled {
   color: #a0a0a0; /* Muted text color */
   cursor: not-allowed; /* Not-allowed cursor on hover */
   box-shadow: none; /* No shadow for disabled state */
+}
+
+.form_errors {
+  font-style: italic;
+}
+
+.roboto_regular {
+  font-weight: 400;
+}
+
+.text_large {
+  font-size: large;
+}
+
+.padding_top_large {
+  padding-top: 4rem;
+}
+
+.padding_top_small {
+  padding-top: 1rem;
+}
+
+.padding_left_small {
+  padding-left: 1rem;
 }
