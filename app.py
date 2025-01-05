@@ -3,30 +3,39 @@ from flask import Flask, request, render_template, redirect, url_for, flash
 from flask_toastr import Toastr
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Lambda, Dense, MultiHeadAttention, GlobalAveragePooling2D, Concatenate
+from tensorflow.keras.layers import Input, Lambda, Dense, MultiHeadAttention, GlobalAveragePooling2D, Concatenate, Flatten, Dropout, LayerNormalization
 from tensorflow.keras.models import load_model, Model
 from PIL import Image
+from transformers import Wav2Vec2Processor, Wav2Vec2Model
+import torch
+import librosa
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # Required for flashing messages
 
 toastr = Toastr(app)
-app.config['TOASTR_TIMEOUT'] = 5000  # Duration in milliseconds
+app.config['TOASTR_TIMEOUT'] = 10000  # Duration in milliseconds
 app.config['TOASTR_POSITION_CLASS'] = 'toast-top-right'  # Position of the toast
 
 
 # Directory to store uploaded files
 UPLOAD_FOLDER = "uploads"
 PREPROCESSED_IMG_FOLDER = "preprocessed_img"
+PREPROCESSED_AUDIO_FOLDER = "preprocessed_audio"
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".wav"}
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["PREPROCESSED_IMG_FOLDER"] = PREPROCESSED_IMG_FOLDER
+app.config["PREPROCESSED_AUDIO_FOLDER"] = PREPROCESSED_AUDIO_FOLDER
 
 # Ensure the uploads directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PREPROCESSED_IMG_FOLDER, exist_ok=True)
+os.makedirs(PREPROCESSED_AUDIO_FOLDER, exist_ok=True)
+
+
+####---------------IMAGE-----------------####
 
 # Register custom image processing functions
 @tf.keras.utils.register_keras_serializable()
@@ -125,7 +134,121 @@ def preprocess_image(image_path):
     np.save(preprocessed_image_path, image_embedding)
     
     return preprocessed_image_path
-    
+
+
+
+
+####----------------AUDIO-------------------####
+
+
+# Register custom functions
+@tf.keras.utils.register_keras_serializable()
+def pad_or_truncate(features, fixed_timesteps=100):
+    """
+    Pad or truncate features to a fixed number of timesteps.
+    """
+    if features.shape[0] > fixed_timesteps:
+        return features[:fixed_timesteps, :]
+    elif features.shape[0] < fixed_timesteps:
+        padding = np.zeros((fixed_timesteps - features.shape[0], features.shape[1]))
+        return np.vstack([features, padding])
+    return features
+
+@tf.keras.utils.register_keras_serializable()
+def expand_dims2(x):
+    """
+    Add an extra dimension to the input tensor for attention layers.
+    """
+    return tf.expand_dims(x, axis=1)
+
+@tf.keras.utils.register_keras_serializable()
+def squeeze_dims2(x):
+    """
+    Remove the extra dimension added for attention layers.
+    """
+    return tf.squeeze(x, axis=1)
+
+@tf.keras.utils.register_keras_serializable()
+class SaveEmbeddingModel2(Model):
+    """
+    Custom Keras model to save embeddings during prediction.
+    """
+    def predict_and_save(self, audio_path, output_path="audio_embedding.npy"):
+        """
+        Preprocess audio, pass it through the model, and save the embedding.
+
+        Args:
+            audio_path: Path to the input audio file.
+            output_path: Path to save the output embedding (default: 'audio_embedding.npy').
+        """
+        # Load and preprocess the audio
+        waveform, sr = librosa.load(audio_path, sr=16000)
+
+        # Extract Wav2Vec2 features
+        processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base")
+        wav2vec_model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base")
+        wav2vec_model.eval()
+
+        input_values = processor(waveform, sampling_rate=16000, return_tensors="pt", padding=True).input_values
+        with torch.no_grad():
+            features = wav2vec_model(input_values).last_hidden_state.squeeze(0).numpy()
+
+        # Pad or truncate features
+        features = pad_or_truncate(features)
+
+        # Add batch dimension
+        features = np.expand_dims(features, axis=0)
+
+        # Generate the embedding
+        embedding = self.predict(features)
+
+        # Save the embedding to an .npy file
+        np.save(output_path, embedding)
+        print(f"Embedding saved to: {output_path}")
+        return embedding
+
+#Load audio preprocessing model
+audio_model_path = "models/audio_pipeline_full_with_save_function.h5"  # Path to your preprocessing model
+custom_objects = {
+    "SaveEmbeddingModel": SaveEmbeddingModel2,
+    "pad_or_truncate": pad_or_truncate,
+    "expand_dims": expand_dims2,
+    "squeeze_dims": squeeze_dims2,
+}
+audio_pre_model = load_model(audio_model_path, custom_objects=custom_objects, compile=False)
+
+
+def preprocess_audio(audio_path):
+   # Load and preprocess the audio
+    waveform, sr = librosa.load(audio_path, sr=16000)
+
+    # Extract Wav2Vec2 features
+    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base")
+    wav2vec_model = Wav2Vec2Model.from_pretrained("facebook/wav2vec2-base")
+    wav2vec_model.eval()
+
+    input_values = processor(waveform, sampling_rate=16000, return_tensors="pt", padding=True).input_values
+    with torch.no_grad():
+        features = wav2vec_model(input_values).last_hidden_state.squeeze(0).numpy()
+
+    # Pad or truncate features
+    features = pad_or_truncate(features)
+
+    # Add batch dimension
+    features = np.expand_dims(features, axis=0)
+
+    # Generate the embedding using the audio pipeline model
+    audio_embedding = audio_pre_model.predict(features)
+
+    # Save the preprocessed embedding as a .npy file
+    preprocessed_audio_path = os.path.join(app.config["PREPROCESSED_AUDIO_FOLDER"], "audio_embedding.npy")
+    np.save(preprocessed_audio_path, audio_embedding)
+
+    return preprocessed_audio_path
+
+
+
+
 @app.route("/", methods=["GET"])
 def index():
     """
@@ -139,34 +262,49 @@ def process():
     """
     Handle the file upload and processing logic.
     """
-    # Validate files in the request
-    if "image_file" not in request.files or "audio_file" not in request.files:
-        flash("No file selected. Please choose both files.", "error")
+    # Check if any file is in the request
+    if "image_file" not in request.files and "audio_file" not in request.files:
+        flash("No file selected. Please choose at least one file.", "error")
         return redirect(url_for("index"))
 
-    image_file = request.files["image_file"]
-    audio_file = request.files["audio_file"]
+    # Handle image file
+    if "image_file" in request.files:
+        image_file = request.files["image_file"]
 
-    # Check if files are valid
-    if image_file.filename == "" or audio_file.filename == "":
-        flash("No file selected. Please choose both files.")
-        return redirect(url_for("index"))
+        if image_file.filename == "":
+            flash("No image file selected.", "error")
+        elif not allowed_file(image_file.filename, ALLOWED_IMAGE_EXTENSIONS):
+            flash(f"Invalid image file. Allowed extensions: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}", "error")
+        else:
+            image_path = os.path.join(app.config["UPLOAD_FOLDER"], image_file.filename)
+            image_file.save(image_path)
+            try:
+                preprocessed_image_path = preprocess_image(image_path)
+                flash(f"Image file '{image_file.filename}' uploaded successfully.", "success")
+                flash(f"Image preprocessed successfully. Saved at: {preprocessed_image_path}", "success")
+            except Exception as e:
+                flash(f"Error processing image file '{image_file.filename}': {str(e)}", "error")
 
-    # Validate image file
-    if not allowed_file(image_file.filename, ALLOWED_IMAGE_EXTENSIONS):
-        flash(
-            f"Invalid image file. Allowed extensions: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}",
-            "error",
-        )
-        return redirect(url_for("index"))
+    # Handle audio file
+    if "audio_file" in request.files:
+        audio_file = request.files["audio_file"]
 
-    # Validate audio file
-    if not allowed_file(audio_file.filename, ALLOWED_AUDIO_EXTENSIONS):
-        flash(
-            f"Invalid audio file. Allowed extensions: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}",
-            "error",
-        )
-        return redirect(url_for("index"))
+        if audio_file.filename == "":
+            flash("No audio file selected.", "error")
+        elif not allowed_file(audio_file.filename, ALLOWED_AUDIO_EXTENSIONS):
+            flash(f"Invalid audio file. Allowed extensions: {', '.join(ALLOWED_AUDIO_EXTENSIONS)}", "error")
+        else:
+            audio_path = os.path.join(app.config["UPLOAD_FOLDER"], audio_file.filename)
+            audio_file.save(audio_path)
+            try:
+                preprocessed_audio_path = preprocess_audio(audio_path)
+                flash(f"Audio file '{audio_file.filename}' uploaded successfully.", "success")
+                flash(f"Audio preprocessed successfully. Saved at: {preprocessed_audio_path}", "success")
+            except Exception as e:
+                flash(f"Error processing audio file '{audio_file.filename}': {str(e)}", "error")
+
+    return redirect(url_for("index"))
+
 
     # Save the files
     image_path = os.path.join(app.config["UPLOAD_FOLDER"], "image_embedding.npy")
@@ -177,6 +315,7 @@ def process():
     # Preprocess the image
     try:
         preprocessed_image_path = preprocess_image(image_path)
+        preprocessed_audio_path = preprocess_audio(audio_path)
     except Exception as e:
         flash(f"Error during preprocessing: {str(e)}", "error")
         return redirect(url_for("index"))
@@ -188,7 +327,10 @@ def process():
     flash(f"Image Preprocessed successfully at {preprocessed_image_path}",
           "success",
           )
+    flash(f"Audio Preprocessed successfully at {preprocessed_audio_path}",
+          "success",)
     return redirect(url_for("index"))
+
 
 
 @app.route("/reset", methods=["POST"])
