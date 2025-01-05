@@ -182,6 +182,27 @@
           processButton.disabled = true; // Keep "Process" button disabled
         }
       }
+
+      function enablePredictButton() {
+        const predictButton = document.getElementById("predict_button");
+        const predictErrors = document.getElementById("predict_errors");
+        
+        // Mock condition to enable button after processing
+        const fusedEmbeddingExists = true; // Replace this with backend validation if required
+        
+        if (fusedEmbeddingExists) {
+          predictButton.disabled = false;
+          predictErrors.textContent = "";
+        } else {
+          predictErrors.textContent = "Please process files first.";
+        }
+      }
+      
+      // Call enablePredictButton after processing
+      processButton.addEventListener("click", function () {
+        setTimeout(enablePredictButton, 2000); // Mock delay to simulate processing
+      });
+      
     </script>
 
     <!-- Form for Predict -->

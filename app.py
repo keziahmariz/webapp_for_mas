@@ -9,6 +9,9 @@ from PIL import Image
 from transformers import Wav2Vec2Processor, Wav2Vec2Model
 import torch
 import librosa
+from tensorflow.keras.optimizers import Adam
+from sklearn.metrics import classification_report
+import matplotlib.pyplot as plt
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"  # Required for flashing messages
@@ -355,6 +358,41 @@ def process():
     flash(f"Audio Preprocessed successfully at {preprocessed_audio_path}",
           "success",)
     return redirect(url_for("index"))
+
+
+
+predict_model_path = "models/af_model.h5"
+predict_model = load_model(predict_model_path, compile=False)
+
+@app.route("/predict", methods=["POST"])
+def predict():
+    fused_path = os.path.join(app.config["FUSED_NPY_FOLDER"], "fused_embedding.npy")
+
+    if not os.path.exists(fused_path):
+        flash("Fused embedding not found. Please process files first.", "error")
+        return redirect(url_for("index"))
+
+    try:
+        fused_embedding = np.load(fused_path)
+        print(f"Loaded Fused Embedding Shape: {fused_embedding.shape}")
+
+        # Ensure model input compatibility
+        if fused_embedding.shape[1:] != predict_model.input_shape[1:]:
+            flash(f"Shape mismatch: Model expects {predict_model.input_shape[1:]}, got {fused_embedding.shape[1:]}", "error")
+            return redirect(url_for("index"))
+
+        prediction = predict_model.predict(fused_embedding)
+        print(f"Model Prediction Output: {prediction}")
+
+        predicted_age_group = np.argmax(prediction, axis=1)[0]
+        flash(f"Predicted Age Group: {predicted_age_group}", "success")
+    except Exception as e:
+        flash(f"Prediction Error: {str(e)}", "error")
+        print(f"Prediction Error: {str(e)}")
+
+    return redirect(url_for("index"))
+
+
 
 
 @app.route("/reset", methods=["POST"])
