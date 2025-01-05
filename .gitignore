@@ -6,3 +6,4 @@ uploads/
 models/
 preprocessed_img/
 preprocessed_audio/
+fused_npy/

@@ -257,9 +257,15 @@ def preprocess_audio(audio_path):
 @app.route("/", methods=["GET"])
 def index():
     """
-    Render the main page.
+    Render the main page and determine button states based on file existence.
     """
-    return render_template("index.html")
+    # Check if the processed files exist
+    image_processed = os.path.exists(os.path.join(app.config["PREPROCESSED_IMG_FOLDER"], "image_embedding.npy"))
+    audio_processed = os.path.exists(os.path.join(app.config["PREPROCESSED_AUDIO_FOLDER"], "audio_embedding.npy"))
+    files_processed = image_processed and audio_processed
+    print(files_processed)
+
+    return render_template("index.html", files_processed=files_processed)
 
 @app.route("/process", methods=["POST"])
 def process():

@@ -2,8 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    {{ toastr.include_jquery() }}
-    {{ toastr.include_toastr_css() }}
+    {{ toastr.include_jquery() }} {{ toastr.include_toastr_css() }}
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flask Jinja2 Template</title>
@@ -81,6 +80,12 @@
             type="button"
             class="button"
             onclick="document.getElementById('image_file').click();"
+            {%
+            if
+            files_processed
+            %}disabled{%
+            endif
+            %}
           >
             Upload Image
           </button>
@@ -98,6 +103,12 @@
             type="button"
             class="button"
             onclick="document.getElementById('audio_file').click();"
+            {%
+            if
+            files_processed
+            %}disabled{%
+            endif
+            %}
           >
             Upload Audio
           </button>
@@ -113,7 +124,8 @@
 
         <!-- Error Message -->
         <div style="text-align: center; margin-bottom: 20px" id="file_errors">
-          No files selected.
+          {% if files_processed %} Files are Processed {% else %} No files
+          selected. {% endif %}
         </div>
 
         <div>Extract features from image and audio here:</div>
@@ -121,7 +133,6 @@
         <button type="submit" class="button" id="process_button" disabled>
           Process
         </button>
-        
       </form>
     </div>
 
@@ -172,53 +183,47 @@
         const imageSelected = imageInput.files.length > 0;
         const audioSelected = audioInput.files.length > 0;
 
-        if (imageSelected && audioSelected) {
-          const imageName = imageInput.files[0].name;
-          const audioName = audioInput.files[0].name;
-          fileErrors.textContent = `Image: ${imageName} | Voice: ${audioName}`;
-          processButton.disabled = false; // Enable "Process" button
+        if (imageSelected || audioSelected) {
+          let statusMessage = "";
+
+          if (imageSelected) {
+            const imageName = imageInput.files[0].name;
+            statusMessage += `Image: ${imageName}`;
+          }
+
+          if (audioSelected) {
+            const audioName = audioInput.files[0].name;
+            statusMessage += imageSelected
+              ? ` | Voice: ${audioName}`
+              : `Voice: ${audioName}`;
+          }
+
+          fileErrors.textContent = statusMessage;
+          processButton.disabled = !(imageSelected && audioSelected); // Enable only if both files are selected
         } else {
           fileErrors.textContent = "Files not selected";
           processButton.disabled = true; // Keep "Process" button disabled
         }
       }
-
-      function enablePredictButton() {
-        const predictButton = document.getElementById("predict_button");
-        const predictErrors = document.getElementById("predict_errors");
-        
-        // Mock condition to enable button after processing
-        const fusedEmbeddingExists = true; // Replace this with backend validation if required
-        
-        if (fusedEmbeddingExists) {
-          predictButton.disabled = false;
-          predictErrors.textContent = "";
-        } else {
-          predictErrors.textContent = "Please process files first.";
-        }
-      }
-      
-      // Call enablePredictButton after processing
-      processButton.addEventListener("click", function () {
-        setTimeout(enablePredictButton, 2000); // Mock delay to simulate processing
-      });
-      
     </script>
 
     <!-- Form for Predict -->
     <div class="padding_top_small">
-      <div style="display: flex">
+      <div
+        style="
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+        "
+      >
         <div class="">Predict the age from extracted features here:</div>
-        <form
-          action="/predict"
-          method="post"
-          style="display: flex"
-          class="padding_left_small"
-        >
-          <button type="submit" disabled>Predict</button>
+        <form action="/predict" method="post" style="display: flex">
+          <button type="submit" {% if not files_processed %}disabled{% endif %}>
+            Predict
+          </button>
         </form>
       </div>
-      <div style="text-align: center" class="form_errors">errors</div>
     </div>
 
     <!-- Conditionally Rendered Loading Bar and Text
@@ -248,7 +253,17 @@
 
     <!-- Reset Button -->
     <form action="/reset" method="post" class="padding_top_small">
-      <button type="submit" style="display: flex; align-items: center">
+      <button
+        type="submit"
+        style="display: flex; align-items: center"
+        {%
+        if
+        not
+        files_processed
+        %}disabled{%
+        endif
+        %}
+      >
         <img src="/static/reset.png" alt="Reset Icon" />Reset
       </button>
     </form>
@@ -267,8 +282,6 @@
     </div>
     -->
 
-    {{ toastr.include_toastr_js() }}
-    {{ toastr.message() }}
-
+    {{ toastr.include_toastr_js() }} {{ toastr.message() }}
   </body>
 </html>
