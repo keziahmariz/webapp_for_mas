@@ -24,16 +24,18 @@ PREPROCESSED_IMG_FOLDER = "preprocessed_img"
 PREPROCESSED_AUDIO_FOLDER = "preprocessed_audio"
 ALLOWED_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg"}
 ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".wav"}
+FUSED_NPY_FOLDER = "fused_npy"
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["PREPROCESSED_IMG_FOLDER"] = PREPROCESSED_IMG_FOLDER
 app.config["PREPROCESSED_AUDIO_FOLDER"] = PREPROCESSED_AUDIO_FOLDER
+app.config["FUSED_NPY_FOLDER"] = FUSED_NPY_FOLDER
 
 # Ensure the uploads directory exists
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PREPROCESSED_IMG_FOLDER, exist_ok=True)
 os.makedirs(PREPROCESSED_AUDIO_FOLDER, exist_ok=True)
-
+os.makedirs(FUSED_NPY_FOLDER, exist_ok=True)
 
 ####---------------IMAGE-----------------####
 
@@ -256,16 +258,18 @@ def index():
     """
     return render_template("index.html")
 
-
 @app.route("/process", methods=["POST"])
 def process():
     """
-    Handle the file upload and processing logic.
+    Handle the file upload, processing, and automatic fusion logic.
     """
     # Check if any file is in the request
     if "image_file" not in request.files and "audio_file" not in request.files:
         flash("No file selected. Please choose at least one file.", "error")
         return redirect(url_for("index"))
+
+    image_embedding_path = None
+    audio_embedding_path = None
 
     # Handle image file
     if "image_file" in request.files:
@@ -279,9 +283,8 @@ def process():
             image_path = os.path.join(app.config["UPLOAD_FOLDER"], image_file.filename)
             image_file.save(image_path)
             try:
-                preprocessed_image_path = preprocess_image(image_path)
-                flash(f"Image file '{image_file.filename}' uploaded successfully.", "success")
-                flash(f"Image preprocessed successfully. Saved at: {preprocessed_image_path}", "success")
+                image_embedding_path = preprocess_image(image_path)
+                flash(f"Image file '{image_file.filename}' uploaded and processed successfully.", "success")
             except Exception as e:
                 flash(f"Error processing image file '{image_file.filename}': {str(e)}", "error")
 
@@ -297,11 +300,33 @@ def process():
             audio_path = os.path.join(app.config["UPLOAD_FOLDER"], audio_file.filename)
             audio_file.save(audio_path)
             try:
-                preprocessed_audio_path = preprocess_audio(audio_path)
-                flash(f"Audio file '{audio_file.filename}' uploaded successfully.", "success")
-                flash(f"Audio preprocessed successfully. Saved at: {preprocessed_audio_path}", "success")
+                audio_embedding_path = preprocess_audio(audio_path)
+                flash(f"Audio file '{audio_file.filename}' uploaded and processed successfully.", "success")
             except Exception as e:
                 flash(f"Error processing audio file '{audio_file.filename}': {str(e)}", "error")
+
+    # Check if both embeddings are saved and accessible
+    if image_embedding_path and audio_embedding_path:
+        try:
+            # Load the embeddings
+            image_embedding = np.load(image_embedding_path)
+            audio_embedding = np.load(audio_embedding_path)
+
+            # Ensure embeddings have compatible shapes
+            if image_embedding.shape[0] != audio_embedding.shape[0]:
+                flash("Mismatch in embedding shapes. Cannot fuse.", "error")
+                return redirect(url_for("index"))
+
+            # Fuse the embeddings by concatenating along the feature axis
+            fused_embedding = np.concatenate((image_embedding, audio_embedding), axis=1)
+
+            # Save the fused embedding
+            fused_embedding_path = os.path.join(app.config["FUSED_NPY_FOLDER"], "fused_embedding.npy")
+            np.save(fused_embedding_path, fused_embedding)
+
+            flash(f"Embeddings fused successfully! Fused embedding saved at: {fused_embedding_path}", "success")
+        except Exception as e:
+            flash(f"Error during fusion: {str(e)}", "error")
 
     return redirect(url_for("index"))
 
@@ -332,14 +357,13 @@ def process():
     return redirect(url_for("index"))
 
 
-
 @app.route("/reset", methods=["POST"])
 def reset():
     """
     Handle the reset functionality.
     """
 # Clear the uploads and preprocessed image folders
-    for folder in [UPLOAD_FOLDER, PREPROCESSED_IMG_FOLDER]:
+    for folder in [UPLOAD_FOLDER, PREPROCESSED_IMG_FOLDER, PREPROCESSED_AUDIO_FOLDER, FUSED_NPY_FOLDER]:
         for file in os.listdir(folder):
             os.remove(os.path.join(folder, file))
 
