@@ -367,8 +367,6 @@ def process():
 
 
 
-predict_model_path = "models/af_model.h5"
-predict_model = load_model(predict_model_path, compile=False)
 
 @app.route("/predict", methods=["POST"])
 def predict():
@@ -379,25 +377,42 @@ def predict():
         return redirect(url_for("index"))
 
     try:
-        fused_embedding = np.load(fused_path)
-        print(f"Loaded Fused Embedding Shape: {fused_embedding.shape}")
+        # Load fused embeddings
+        fused_embeddings = np.load(fused_path, allow_pickle=True)
+        print(f"Loaded Fused Embedding Shape: {fused_embeddings.shape}")
 
-        # Ensure model input compatibility
-        if fused_embedding.shape[1:] != predict_model.input_shape[1:]:
-            flash(f"Shape mismatch: Model expects {predict_model.input_shape[1:]}, got {fused_embedding.shape[1:]}", "error")
-            return redirect(url_for("index"))
+        # Select the first sample (or loop through samples if necessary)
+        sample_index = 0
+        sample_embedding = fused_embeddings[sample_index].reshape(1, -1)
 
-        prediction = predict_model.predict(fused_embedding)
-        print(f"Model Prediction Output: {prediction}")
+        # Load the prediction model
+        model_path = "models/final_esf_model.keras"
+        model = load_model(model_path, compile=False)
 
-        predicted_age_group = np.argmax(prediction, axis=1)[0]
-        flash(f"Predicted Age Group: {predicted_age_group}", "success")
+        # Make prediction
+        predictions = model.predict(sample_embedding)
+        print(f"Model Prediction Output: {predictions}")
+
+        # Determine predicted class and confidence
+        label_classes = ["0", "1", "2", "3", "4", "5", "6"]
+        predicted_class_index = np.argmax(predictions[0])
+        confidence = np.max(predictions[0])
+        predicted_class_name = label_classes[predicted_class_index]
+
+        # Pass results to the template
+        result_h1 = f"Predicted Age Group: {predicted_class_name}"
+        analysis_h1 = f"Confidence: {confidence:.4f}"
+
+        return render_template(
+            "index.html",
+            files_processed=True,
+            result_h1=result_h1,
+            analysis_h1=analysis_h1
+        )
     except Exception as e:
         flash(f"Prediction Error: {str(e)}", "error")
         print(f"Prediction Error: {str(e)}")
-
-    return redirect(url_for("index"))
-
+        return redirect(url_for("index"))
 
 
 
