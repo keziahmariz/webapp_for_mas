@@ -389,19 +389,31 @@ def predict():
         model_path = "models/final_esf_model.keras"
         model = load_model(model_path, compile=False)
 
+        
+
         # Make prediction
         predictions = model.predict(sample_embedding)
         print(f"Model Prediction Output: {predictions}")
 
         # Determine predicted class and confidence
-        label_classes = ["0", "1", "2", "3", "4", "5", "6"]
+        #label_classes = ["0", "1", "2", "3", "4", "5", "6"]
+        class_to_age_range = {
+            0: "Teens (13-19)",
+            1: "Twenties (20-29)",
+            2: "Thirties (30-39)",
+            3: "Fourties (40-49)",
+            4: "Fifties (50-59)",
+            5: "Sixties (60-69)",
+            6: "Seventies+ (70+)"
+            }
+
         predicted_class_index = np.argmax(predictions[0])
         confidence = np.max(predictions[0])
-        predicted_class_name = label_classes[predicted_class_index]
+        predicted_class_name = class_to_age_range[predicted_class_index]
 
         # Pass results to the template
-        result_h1 = f"Predicted Age Group: {predicted_class_name}"
-        analysis_h1 = f"Confidence: {confidence:.4f}"
+        result_h1 = f"Age Group: {predicted_class_name}"
+        analysis_h1 = f"{confidence:.4f}"
 
         return render_template(
             "index.html",
